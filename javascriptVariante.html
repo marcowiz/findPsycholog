@@ -1,0 +1,61 @@
+// DOMParser to parse HTML responses
+const parser = new DOMParser();
+
+// Function to fetch links
+async function getLinks() {
+    let links = [];
+    let auswahl = prompt("Bitte die Nr. eingeben für den Suchort, 12 = Züri 0 = Alle: ");
+    
+    let response = await fetch("https://www.therapievermittlung.ch/therapeutinnen-suche/members-search/suche/list/", {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            "tx_members_search[region]": auswahl,
+        })
+    });
+    
+    let data = await response.text();
+    let doc = parser.parseFromString(data, "text/html");
+    let officeDetails = doc.querySelectorAll(".officeDetail");
+    
+    officeDetails.forEach(detail => {
+        let url = detail.getAttribute('data-url');
+        let link = `https://www.therapievermittlung.ch${url}`;
+        links.push(link);
+    });
+
+    return links;
+}
+
+// Function to fetch emails
+async function getEmails(links) {
+    let emails = [];
+    
+    for (let i = 0; i < links.length; i++) {
+        let response = await fetch(links[i]);
+        let data = await response.text();
+        let doc = parser.parseFromString(data, "text/html");
+        
+        let emailLinks = doc.querySelectorAll('a[href^="mailto:"]');
+        emailLinks.forEach(link => {
+            let email = link.href.replace("mailto:", "");
+            emails.push(email);
+        });
+    }
+    
+    return emails;
+}
+
+// Fetch links and then emails
+getLinks().then(links => {
+    console.log(links.length);
+    getEmails(links).then(emails => {
+        emails.forEach(email => console.log(email));
+        let emailString = emails.join('\n');
+        // Copying to clipboard in JavaScript is a bit more involved, and it might require user interaction
+        // See: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Interact_with_the_clipboard
+        alert("Email addresses ready. Check your console for output.");
+    });
+});
